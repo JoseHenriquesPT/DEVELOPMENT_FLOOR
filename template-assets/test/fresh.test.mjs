@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, cpSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -130,4 +130,52 @@ test("setup.mjs refuses --fresh alongside --into", () => {
   });
   assert.notEqual(r.status, 0);
   assert.match(r.stdout + r.stderr, /fresh/i);
+});
+
+// The regression this guards: the initial commit used to be made before the
+// skills were installed and the scaffolding removed, which left the finished
+// project sitting as uncommitted changes. A real (non-dry) run must end with
+// one commit that already contains the unpacked result, and a clean tree.
+//
+// The template is copied into the fixture so the installer's self-deletion
+// hits the copy. Only the local skill is enabled, so the run stays offline.
+test("a real fresh run commits the unpacked project and leaves a clean tree", () => {
+  const dir = mkdtempSync(join(tmpdir(), "fresh-run-"));
+  for (const entry of readdirSync(TEMPLATE_ROOT)) {
+    if (entry === ".git") continue;
+    cpSync(join(TEMPLATE_ROOT, entry), join(dir, entry), { recursive: true });
+  }
+  git(dir, "init", "-q", "-b", "master");
+  git(dir, "config", "user.email", "test@example.com");
+  git(dir, "config", "user.name", "Test");
+  git(dir, "add", "-A");
+  git(dir, "commit", "-q", "-m", "template history");
+  git(dir, "remote", "add", "origin", "https://github.com/Tykelar/DEVELOPMENT_FLOOR.git");
+
+  // git: yes; grill-with-docs: no; thermo: yes; five remote skills: no;
+  // remove scaffolding: yes.
+  const r = spawnSync(process.execPath, [join(dir, "setup.mjs"), "--fresh", "--no-claude"], {
+    cwd: dir,
+    input: "y\nn\ny\nn\nn\nn\nn\nn\ny\n",
+    encoding: "utf8",
+  });
+  assert.equal(r.status, 0, r.stderr);
+
+  assert.equal(git(dir, "status", "--porcelain"), "", "tree is clean after unpacking");
+  assert.equal(commits(dir), 1);
+  assert.equal(roots(dir), 1, "history is parentless");
+  assert.deepEqual(branches(dir), ["main"]);
+  assert.deepEqual(remotes(dir), []);
+
+  const tracked = lines(git(dir, "ls-files"));
+  assert.ok(
+    tracked.includes(".agents/skills/thermo-nuclear-code-quality-review/SKILL.md"),
+    "the installed skill is part of the initial commit",
+  );
+  assert.ok(
+    !tracked.some((f) => f === "setup.mjs" || f.startsWith("template-assets/")),
+    "scaffolding is not part of the initial commit",
+  );
+  assert.ok(!existsSync(join(dir, "setup.mjs")), "installer removed");
+  assert.ok(!existsSync(join(dir, "template-assets")), "scaffolding removed");
 });

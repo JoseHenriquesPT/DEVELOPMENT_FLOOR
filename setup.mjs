@@ -399,6 +399,11 @@ async function askYesNo(question, defaultYes = true) {
 
 const summary = [];
 
+// In fresh mode git is decided early but committed at the very end, so the
+// initial commit captures the finished project (skills installed, scaffolding
+// removed) instead of the template exactly as it arrived.
+let freshGitPending = false;
+
 if (adopting) {
   if (fresh) {
     fail(
@@ -415,7 +420,8 @@ if (adopting) {
   console.log("Project setup — pick what you want, skip what you don't.\n");
 
   // git — fresh projects only. An existing repo keeps its history unless
-  // --fresh asks for a new one; adopt mode never touches git at all.
+  // --fresh asks for a new one; adopt mode never touches git at all. The
+  // commit itself happens at the end of the run, once unpacking is done.
   if (await askYesNo("Initialize a git repository here?", true)) {
     const isRepo = existsSync(join(targetRoot, ".git"));
     if (!fresh && isRepo) {
@@ -433,21 +439,7 @@ if (adopting) {
       );
       summary.push("fresh git history (dry run)");
     } else {
-      const result = ensureFreshHistory({
-        cwd: targetRoot,
-        log: (cmd) => console.log(`  $ ${cmd}`),
-      });
-      if (result.changed) {
-        console.log(
-          result.droppedOrigin
-            ? "  Started a fresh history on main; dropped the template's origin remote."
-            : "  Started a fresh history on main.",
-        );
-        summary.push("fresh git history started (main)");
-      } else {
-        console.log("  History is already fresh — nothing to change.");
-        summary.push("git history already fresh");
-      }
+      freshGitPending = true;
     }
   } else {
     summary.push("git init skipped");
@@ -497,18 +489,35 @@ if (useClaude) {
 
 // Clean up template scaffolding — fresh projects only. When adopting, the
 // scaffolding lives in the template folder, which is not ours to delete.
+// The script removes itself too, before the commit below, so neither lands in
+// the project's history.
 if (!adopting && (await askYesNo("Remove template scaffolding (this script + template-assets/) when done?", true))) {
   if (dryRun) {
     report("remove", "setup.mjs + template-assets/");
   } else {
     rmSync(join(targetRoot, "template-assets"), { recursive: true, force: true });
-    summary.push("template scaffolding removed");
-    console.log("\nSetup complete:");
-    summary.forEach((line) => console.log(`  - ${line}`));
-    rl.close();
-    // Remove this script last, after it has already printed its summary.
     rmSync(fileURLToPath(import.meta.url), { force: true });
-    process.exit(0);
+    summary.push("template scaffolding removed");
+  }
+}
+
+// The fresh history is committed last so the initial commit contains the
+// finished project: skills in, scaffolding out.
+if (freshGitPending && !dryRun) {
+  const result = ensureFreshHistory({
+    cwd: targetRoot,
+    log: (cmd) => console.log(`  $ ${cmd}`),
+  });
+  if (result.changed) {
+    console.log(
+      result.droppedOrigin
+        ? "\n  Started a fresh history on main; dropped the template's origin remote."
+        : "\n  Started a fresh history on main.",
+    );
+    summary.push("fresh git history started (main)");
+  } else {
+    console.log("\n  History is already fresh — nothing to change.");
+    summary.push("git history already fresh");
   }
 }
 
