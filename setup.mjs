@@ -8,8 +8,11 @@
 //                                      instead of overwriting
 //
 // Other flags: --list (print the skill catalog), --dry-run, --allow-dirty,
-// --claude / --no-claude (force or skip the Claude Code compatibility shims;
-// by default they are installed only when ~/.claude exists).
+// --yes (accept every prompt's default, so the run is unattended), --fresh
+// (new projects: start a parentless `main` history and drop the template's
+// origin remote), --claude / --no-claude (force or skip the Claude Code
+// compatibility shims; by default they are installed only when ~/.claude
+// exists).
 //
 // Harness model: the canonical artifacts are neutral — AGENTS.md, .agents/skills
 // and docs/KNOWLEDGE.md — and every standards-compliant harness (pi, Codex,
@@ -42,6 +45,7 @@ import {
   mergeExtensions,
   parseJson,
 } from "./template-assets/lib/merge.mjs";
+import { ensureFreshHistory } from "./template-assets/lib/fresh.mjs";
 
 const args = process.argv.slice(2);
 const hasFlag = (name) => args.includes(name);
@@ -58,6 +62,8 @@ const adopting = Boolean(into);
 const targetRoot = adopting ? resolve(into) : process.cwd();
 const dryRun = hasFlag("--dry-run");
 const allowDirty = hasFlag("--allow-dirty");
+const assumeYes = hasFlag("--yes") || hasFlag("-y");
+const fresh = hasFlag("--fresh");
 
 const localSkillsDir = join(sourceRoot, "template-assets", "skills");
 const claudeShimDir = join(sourceRoot, "template-assets", "harness", "claude");
@@ -379,6 +385,10 @@ function nextLine() {
 
 async function askYesNo(question, defaultYes = true) {
   const hint = defaultYes ? "Y/n" : "y/N";
+  if (assumeYes) {
+    process.stdout.write(`${question} [${hint}] (${defaultYes ? "y" : "n"})\n`);
+    return defaultYes;
+  }
   process.stdout.write(`${question} [${hint}] `);
   const answer = (await nextLine()).trim().toLowerCase();
   if (answer === "") return defaultYes;
@@ -390,6 +400,12 @@ async function askYesNo(question, defaultYes = true) {
 const summary = [];
 
 if (adopting) {
+  if (fresh) {
+    fail(
+      "--fresh starts a new project's own history and cannot be combined with --into.\n" +
+        "Adoption never touches git history.",
+    );
+  }
   assertAdoptable();
   console.log(`Adopting this template into ${targetRoot}${dryRun ? " (dry run)" : ""}.\n`);
   installConfigFiles();
@@ -398,16 +414,41 @@ if (adopting) {
 } else {
   console.log("Project setup — pick what you want, skip what you don't.\n");
 
-  // git init — fresh projects only. An existing repo is never committed to.
+  // git — fresh projects only. An existing repo keeps its history unless
+  // --fresh asks for a new one; adopt mode never touches git at all.
   if (await askYesNo("Initialize a git repository here?", true)) {
-    if (existsSync(join(targetRoot, ".git"))) {
-      console.log("  Already a git repo, skipping init.");
+    const isRepo = existsSync(join(targetRoot, ".git"));
+    if (!fresh && isRepo) {
+      console.log("  Already a git repo — leaving its history alone.");
+      console.log(
+        "  Pass --fresh to give the project its own parentless main history and drop the template remote.",
+      );
+      summary.push("existing git history kept");
+    } else if (dryRun) {
+      report(
+        "fresh",
+        isRepo
+          ? "git history → parentless Initial commit on main, drop origin"
+          : "git repository + parentless Initial commit on main",
+      );
+      summary.push("fresh git history (dry run)");
     } else {
-      run("git init");
-      run("git add -A");
-      run('git commit -m "Initial commit"');
+      const result = ensureFreshHistory({
+        cwd: targetRoot,
+        log: (cmd) => console.log(`  $ ${cmd}`),
+      });
+      if (result.changed) {
+        console.log(
+          result.droppedOrigin
+            ? "  Started a fresh history on main; dropped the template's origin remote."
+            : "  Started a fresh history on main.",
+        );
+        summary.push("fresh git history started (main)");
+      } else {
+        console.log("  History is already fresh — nothing to change.");
+        summary.push("git history already fresh");
+      }
     }
-    summary.push("git repository initialized");
   } else {
     summary.push("git init skipped");
   }
@@ -457,14 +498,18 @@ if (useClaude) {
 // Clean up template scaffolding — fresh projects only. When adopting, the
 // scaffolding lives in the template folder, which is not ours to delete.
 if (!adopting && (await askYesNo("Remove template scaffolding (this script + template-assets/) when done?", true))) {
-  rmSync(join(targetRoot, "template-assets"), { recursive: true, force: true });
-  summary.push("template scaffolding removed");
-  console.log("\nSetup complete:");
-  summary.forEach((line) => console.log(`  - ${line}`));
-  rl.close();
-  // Remove this script last, after it has already printed its summary.
-  rmSync(fileURLToPath(import.meta.url), { force: true });
-  process.exit(0);
+  if (dryRun) {
+    report("remove", "setup.mjs + template-assets/");
+  } else {
+    rmSync(join(targetRoot, "template-assets"), { recursive: true, force: true });
+    summary.push("template scaffolding removed");
+    console.log("\nSetup complete:");
+    summary.forEach((line) => console.log(`  - ${line}`));
+    rl.close();
+    // Remove this script last, after it has already printed its summary.
+    rmSync(fileURLToPath(import.meta.url), { force: true });
+    process.exit(0);
+  }
 }
 
 console.log(`\n${adopting ? "Adoption" : "Setup"} complete:`);

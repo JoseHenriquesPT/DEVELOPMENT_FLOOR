@@ -20,12 +20,29 @@ installs the canonical setup alone.
 
 ## Starting a new project
 
-1. Copy this folder and rename the copy to your new project's name.
-2. Run the setup script and pick what you want:
-   ```bash
-   node setup.mjs
-   ```
-3. Start building.
+Clone (or copy) the template, then unpack it in one unattended command:
+
+```bash
+git clone https://github.com/Tykelar/DEVELOPMENT_FLOOR.git MyProject
+cd MyProject
+node setup.mjs --fresh --yes --no-claude
+```
+
+- `--fresh` gives the project its own history: a single parentless `Initial commit` on `main`,
+  with the template's `origin` remote dropped. Without it, an existing `.git` is left exactly as
+  it is.
+- `--yes` accepts every default — all skills enabled, scaffolding removed — so the run needs no
+  input. Drop it to be asked once per item (all prompts default to yes).
+- `--no-claude` installs the canonical, harness-neutral setup and skips the Claude Code shim;
+  pass `--claude` instead if you want the shim.
+
+Publish the project under its own name when you're ready:
+
+```bash
+gh repo create <owner>/MyProject --private --source=. --remote=origin --push
+```
+
+The reasoning behind the fresh start is recorded in [docs/DECISIONS.md](docs/DECISIONS.md).
 
 ## Adding this setup to an existing repository
 
@@ -43,6 +60,8 @@ Useful flags:
 | `--into <repo>` | Adopt into an existing repository instead of setting up in place. |
 | `--dry-run` | Print exactly what would change, touch nothing. |
 | `--allow-dirty` | Skip the clean-working-tree check (see below). |
+| `--yes` | Accept every prompt's default, so the run is unattended. |
+| `--fresh` | New projects: start a parentless `Initial commit` on `main` and drop the template's `origin` remote. Never valid together with `--into`. |
 | `--claude` | Install the Claude Code shim even if `~/.claude` is absent. |
 | `--no-claude` | Install the canonical setup only, with no Claude-specific files. |
 | `--list` | Print the skill catalog without installing anything. |
@@ -82,7 +101,8 @@ reported and left byte-for-byte alone rather than reformatted — merge those li
 
 - **[AGENTS.md](AGENTS.md)** — behavioral guidelines every harness follows automatically (plan before complex tasks, tests before building, one task per session, plain-language change summaries).
 - **[docs/KNOWLEDGE.md](docs/KNOWLEDGE.md)** — capability reference (task delegation, worktrees, hooks, repeated runs, side questions, remote sessions, skills) with a note that the exact command depends on your harness. Not auto-loaded — check it when a task calls for one of these.
-- **`setup.mjs`** — the installer described above. In new-project mode it asks once per item (git init, then each skill in the catalog) and removes itself and `template-assets/` when finished, so the resulting project doesn't carry template scaffolding. Run `node setup.mjs --list` to preview the catalog without installing anything.
+- **[docs/DECISIONS.md](docs/DECISIONS.md)** — template-level decisions in ADR form, starting with the fresh-start rule for new projects.
+- **`setup.mjs`** — the installer described above. In new-project mode it asks once per item (git, then each skill in the catalog), or takes `--yes` to accept every default unattended, and removes itself and `template-assets/` when finished, so the resulting project doesn't carry template scaffolding. Run `node setup.mjs --list` to preview the catalog without installing anything.
 - **[.vscode/extensions.json](.vscode/extensions.json)** — recommends [VSSticky](https://marketplace.visualstudio.com/items?itemName=Hyperclaw79.vssticky), so opening a project copied from this template prompts to install it. Lets you keep per-file/workspace markdown notes (quick reference, commands to remember) without opening a separate document.
 - **`template-assets/`** — scaffolding that belongs to the template, not to your project: staged skills in `skills/`, the Claude shim in `harness/claude/`, the merge rules in `lib/merge.mjs`, and their tests in `test/`. New-project setup deletes the whole folder when it's done.
 
@@ -120,8 +140,8 @@ To wire a harness that needs its own file (for example a `GEMINI.md`), add a one
 
 ## Tests
 
-The merge rules, the adopt flow, and the canonical-vs-shim file layout are covered by tests, run
-with node's built-in runner (no dependencies):
+The merge rules, the adopt flow, the fresh-start flow, and the canonical-vs-shim file layout are
+covered by tests, run with node's built-in runner (no dependencies):
 
 ```bash
 node --test "template-assets/test/*.test.mjs"
