@@ -48,3 +48,29 @@ into an existing repository (`--into`) never touches git, and passing both is re
 - The default branch of every new project is `main`, independent of the machine's git config.
 - Working-tree files — including uncommitted ones — are preserved by the re-root; only history,
   branches and the remote are replaced.
+
+## ADR-0002 — Fresh setups get a project README, not the template's
+
+**Date:** 2026-09-28
+**Status:** accepted
+
+### Context
+
+Scaffolding removal deleted the installer but left the template's `README.md` in place, so a
+new project's README described the template and told the reader to run a `setup.mjs` that no
+longer existed.
+
+### Decision
+
+At the end of a fresh setup — before the initial commit, so the commit already contains it —
+`README.md` is replaced by a minimal project README titled after the project folder. It
+points at `AGENTS.md`, `.agents/skills/` and `docs/KNOWLEDGE.md`, and says the project
+description is a placeholder to replace. Adoption (`--into`) never touches a repository's own
+README.
+
+### Consequences
+
+- A new project's first commit contains a README that fits it, and the first person to open
+  it knows where the guidance, skills and capability reference live.
+- The template's README is documentation for the template repository itself; it no longer
+  doubles as a new project's starting README.

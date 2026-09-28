@@ -34,7 +34,7 @@ import {
   symlinkSync,
   lstatSync,
 } from "node:fs";
-import { join, dirname, resolve, relative } from "node:path";
+import { join, dirname, resolve, relative, basename } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 
@@ -256,6 +256,26 @@ function writeIfChanged(rel, content) {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, content);
   report(existed ? "merge" : "create", rel);
+}
+
+// The minimal README a fresh project starts from, named after its folder. It
+// replaces the template's own README, which describes the template rather than
+// the project (and tells the reader to run an installer that is already gone).
+function projectReadme(name) {
+  return [
+    `# ${name}`,
+    "",
+    "Replace this with what the project actually does.",
+    "",
+    "## Working in this repository",
+    "",
+    "- Agent guidance lives in [AGENTS.md](AGENTS.md).",
+    "- Reusable skills live in [.agents/skills/](.agents/skills/).",
+    "- Cross-harness capability reference: [docs/KNOWLEDGE.md](docs/KNOWLEDGE.md).",
+    "",
+    "Scaffolded with the [DEVELOPMENT_FLOOR](https://github.com/Tykelar/DEVELOPMENT_FLOOR) template.",
+    "",
+  ].join("\n");
 }
 
 // The canonical, harness-neutral files the template contributes, and how each
@@ -485,6 +505,28 @@ if (useClaude) {
       (existsSync(join(targetRoot, join(".claude", "settings.json"))) ? ", .claude/settings.json" : "") +
       `). Run with --no-claude to skip it.`,
   );
+}
+
+// The README that arrived with the template describes the template, not this
+// project; swap in a minimal project README before the fresh commit below, so
+// the initial commit already starts from a project README. Adoption never
+// touches a repository's own README.
+if (!adopting) {
+  const rel = "README.md";
+  const path = join(targetRoot, rel);
+  const content = projectReadme(basename(targetRoot));
+  const existing = existsSync(path) ? readFileSync(path, "utf8") : null;
+  if (existing === content) {
+    report("ok", rel, "already a project README");
+  } else {
+    if (dryRun) {
+      summary.push("README.md replaced (dry run)");
+    } else {
+      writeFileSync(path, content);
+      summary.push("README.md replaced with a project README");
+    }
+    report(existing === null ? "create" : "replace", rel);
+  }
 }
 
 // Clean up template scaffolding — fresh projects only. When adopting, the

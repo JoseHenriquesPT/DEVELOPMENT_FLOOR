@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, cpSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, dirname } from "node:path";
+import { join, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ensureFreshHistory } from "../lib/fresh.mjs";
@@ -37,6 +37,7 @@ function makeClone() {
   git(dir, "config", "user.email", "test@example.com");
   git(dir, "config", "user.name", "Test");
   writeFileSync(join(dir, "AGENTS.md"), "# Guidelines\n");
+  writeFileSync(join(dir, "README.md"), "# Project template\n");
   mkdirSync(join(dir, "docs"), { recursive: true });
   writeFileSync(join(dir, "docs", "KNOWLEDGE.md"), "# Tooling\n");
   git(dir, "add", "-A");
@@ -120,6 +121,8 @@ test("setup.mjs --fresh --yes --no-claude --dry-run changes nothing", () => {
   assert.ok(existsSync(SETUP), "setup.mjs not deleted");
   assert.ok(existsSync(join(TEMPLATE_ROOT, "template-assets")), "scaffolding intact");
   assert.match(r.stdout, /fresh/i, "reports the fresh-start step");
+  assert.equal(readFileSync(join(dir, "README.md"), "utf8"), "# Project template\n", "README left alone");
+  assert.match(r.stdout, /README\.md/, "reports the README swap");
 });
 
 test("setup.mjs refuses --fresh alongside --into", () => {
@@ -178,4 +181,9 @@ test("a real fresh run commits the unpacked project and leaves a clean tree", ()
   );
   assert.ok(!existsSync(join(dir, "setup.mjs")), "installer removed");
   assert.ok(!existsSync(join(dir, "template-assets")), "scaffolding removed");
+
+  const readme = readFileSync(join(dir, "README.md"), "utf8");
+  assert.ok(readme.startsWith(`# ${basename(dir)}\n`), "README is titled after the project folder");
+  assert.ok(!readme.includes("Project template"), "the template README is gone");
+  assert.ok(readme.includes("AGENTS.md"), "README points at the canonical guidance");
 });

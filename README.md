@@ -35,6 +35,8 @@ node setup.mjs --fresh --yes --no-claude
   input. Drop it to be asked once per item (all prompts default to yes).
 - `--no-claude` installs the canonical, harness-neutral setup and skips the Claude Code shim;
   pass `--claude` instead if you want the shim.
+- The template's own `README.md` is replaced by a minimal project README, titled after the
+  project folder and pointing at `AGENTS.md`, `.agents/skills/` and `docs/KNOWLEDGE.md`.
 
 Publish the project under its own name when you're ready:
 
