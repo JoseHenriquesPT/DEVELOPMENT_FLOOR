@@ -101,7 +101,7 @@ reported and left byte-for-byte alone rather than reformatted — merge those li
 
 ## What's in here
 
-- **[AGENTS.md](AGENTS.md)** — behavioral guidelines every harness follows automatically (plan before complex tasks, tests before building, one task per session, plain-language change summaries).
+- **[AGENTS.md](AGENTS.md)** — behavioral guidelines every harness follows automatically (plan before complex tasks, tests before building, one task per session, a thermo-nuclear review before any handoff, plain-language change summaries).
 - **[docs/KNOWLEDGE.md](docs/KNOWLEDGE.md)** — capability reference (task delegation, worktrees, hooks, repeated runs, side questions, remote sessions, skills) with a note that the exact command depends on your harness. Not auto-loaded — check it when a task calls for one of these.
 - **[docs/DECISIONS.md](docs/DECISIONS.md)** — template-level decisions in ADR form, starting with the fresh-start rule for new projects.
 - **`setup.mjs`** — the installer described above. In new-project mode it asks once per item (git, then each skill in the catalog), or takes `--yes` to accept every default unattended, and removes itself and `template-assets/` when finished, so the resulting project doesn't carry template scaffolding. Run `node setup.mjs --list` to preview the catalog without installing anything.
@@ -114,7 +114,7 @@ Each one is an independent yes/no prompt in `setup.mjs` — enable only what a g
 All of them install into `.agents/skills/`, the neutral Agent Skills location.
 
 - **grill-with-docs** — interview session that builds a domain model and keeps `CONTEXT.md` and ADRs updated as you go. Adapted locally from [mattpocock/skills](https://github.com/mattpocock/skills) so it reads harness-neutrally; it requires **grilling** and **domain-modeling**, which setup pulls in automatically.
-- **thermo-nuclear-code-quality-review** — an intentionally harsh, manually-invoked code review pass (structural simplification, file-size discipline, anti-spaghetti). Authored locally in `template-assets/skills/`.
+- **thermo-nuclear-code-quality-review** — an intentionally harsh code review pass (structural simplification, file-size discipline, anti-spaghetti) that every session creating or editing code runs before its handoff. Authored locally in `template-assets/skills/`.
 - **find-skills** — finds relevant skills from the skills.sh ecosystem for a project or task. From [vercel-labs/skills](https://github.com/vercel-labs/skills).
 - **grilling** — relentless round-by-round interview to stress-test a plan. From [mattpocock/skills](https://github.com/mattpocock/skills).
 - **domain-modeling** — builds and sharpens the glossary and ADRs. From [mattpocock/skills](https://github.com/mattpocock/skills).

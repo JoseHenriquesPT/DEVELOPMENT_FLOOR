@@ -1,7 +1,6 @@
 ---
 name: thermo-nuclear-code-quality-review
-description: Run an extremely strict maintainability review focused on abstraction quality, file size, and spaghetti-condition growth. Invoke explicitly when a change needs a harsh structural pass, not for routine reviews.
-disable-model-invocation: true
+description: Run an extremely strict maintainability review focused on abstraction quality, file size, and spaghetti-condition growth. This is the standard end-of-session pass after any session that created or edited code, run before the handoff; it also serves as a harsh structural pass whenever one is requested.
 ---
 
 # Thermo-Nuclear Code Quality Review

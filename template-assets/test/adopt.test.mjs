@@ -76,6 +76,10 @@ test("guidance lands in AGENTS.md; CLAUDE.md is a thin import", () => {
   assert.equal(adopt(repo).status, 0);
   const agents = read(repo, "AGENTS.md");
   assert.ok(agents.includes("Write tests before building"), "template guidance in AGENTS.md");
+  assert.ok(
+    agents.includes("thermo-nuclear-code-quality-review"),
+    "review-before-handoff workflow in AGENTS.md",
+  );
   const claude = read(repo, "CLAUDE.md");
   assert.ok(claude.includes("Never delete this line."), "existing CLAUDE.md text survives");
   assert.ok(claude.includes("@AGENTS.md"), "CLAUDE.md imports the canonical file");
